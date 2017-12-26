@@ -1,0 +1,73 @@
+#if TARGET_NANOS
+#include "nanos.h"
+#endif
+
+MEMORY {
+    ram   (rwx) : ORIGIN = ORIGIN_RAM,   LENGTH = LENGTH_RAM
+    stack (rwx) : ORIGIN = ORIGIN_STACK, LENGTH = ORIGIN_RAM + LENGTH_RAM - ORIGIN_STACK
+
+#define GENERATE_FUNCTION(NAME, ADDRESS, REPLACEMENT, SIZE) \
+    NAME          (rx) : ORIGIN = ADDRESS, LENGTH = SIZE
+
+#define GENERATE_BRANCH(NAME, ADDRESS, ...) \
+    branch_##NAME (rx) : ORIGIN = ADDRESS, LENGTH = 4
+
+#define GENERATE_NOOP(NAME, ADDRESS, REPLACEMENT) \
+    noop_##NAME   (rx) : ORIGIN = ADDRESS, LENGTH = 2
+
+SYMBOL_TABLE
+
+#undef GENERATE_FUNCTION
+#undef GENERATE_BRANCH
+#undef GENERATE_NOOP
+}
+
+SECTIONS {
+    .bss (NOLOAD) : {
+        *(.bss)
+    } >stack
+
+#define GENERATE_FUNCTION(NAME, ADDRESS, REPLACEMENT, SIZE) \
+    .NAME : { \
+        *(.stub_##NAME) \
+        *(.text_##NAME) \
+        *(.rodata_##NAME) \
+    } >NAME
+
+#define GENERATE_BRANCH(NAME, ADDRESS, ...) \
+    .branch_##NAME : { \
+        *(.branch_##NAME) \
+    } >branch_##NAME
+
+#define GENERATE_NOOP(NAME, ADDRESS, REPLACEMENT) \
+    .noop_##NAME : { \
+        *(.noop_##NAME) \
+    } >noop_##NAME
+
+SYMBOL_TABLE
+
+#undef GENERATE_FUNCTION
+#undef GENERATE_BRANCH
+#undef GENERATE_NOOP
+}
+
+#define PROVIDE_SYMBOL(NAME, ADDRESS) \
+    NAME = ADDRESS;
+
+#define PROVIDE_FUNCTION(NAME, ADDRESS) \
+    PROVIDE_SYMBOL(_real_##NAME, ADDRESS)
+
+#define GENERATE_FUNCTION(NAME, ADDRESS, REPLACEMENT, SIZE) \
+    PROVIDE_FUNCTION(NAME, REPLACEMENT)
+
+#define GENERATE_BRANCH(NAME, ADDRESS, ...)
+#define GENERATE_NOOP(NAME, ADDRESS, REPLACEMENT)
+
+PROVIDE_TABLE
+SYMBOL_TABLE
+
+#undef PROVIDE_SYMBOL
+#undef PROVIDE_FUNCTION
+#undef GENERATE_FUNCTION
+#undef GENERATE_BRANCH
+#undef GENERATE_NOOP

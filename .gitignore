@@ -1,0 +1,6 @@
+*.[ado]
+
+*.bin
+*.elf
+*.hex
+*.ld

@@ -1,0 +1,91 @@
+TOP        := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
+ifneq ($(V),1)
+Q := @
+LOAD_ARGS  += --apdu
+endif
+
+TARGET_NAME ?= TARGET_NANOS
+
+ifeq ($(TARGET_NAME),TARGET_NANOS)
+TARGET_ID  := 0x01000001
+CPPFLAGS   += -DTARGET_NANOS
+
+VERSION    := nanosr1
+RELEASE    := $(TOP)vendor/nanos-nonsecure-firmware-releases/$(VERSION)/token.loadable.signed_perso_11.hex
+SEPROXYHAL := $(TOP)vendor/nanos-nonsecure-firmware/seproxyhal
+endif
+
+ifneq ($(BOLOS_ENV),)
+PREFIX     ?= $(BOLOS_ENV)/gcc-arm-none-eabi-5_3-2016q1/bin/arm-none-eabi-
+else
+PREFIX     ?= arm-none-eabi-
+endif
+
+CC         := $(PREFIX)gcc
+LD         := $(PREFIX)gcc
+OBJCOPY    := $(PREFIX)objcopy
+
+PYTHON     ?= python2
+
+ARCH_FLAGS += -mcpu=cortex-m0 -mthumb
+CFLAGS     += -std=gnu99 -Os -ggdb3
+CFLAGS     += -Wall -Wextra -Werror
+CPPFLAGS   += -I$(TOP)
+CPPFLAGS   += -I$(SEPROXYHAL)/include
+LDFLAGS    += -L$(TOP)
+LDFLAGS    += -nostdlib
+
+.PHONY: all load delete clean vendor
+
+all: $(NAME).loadable.hex
+
+$(NAME).loadable.hex: $(NAME).hex $(RELEASE)
+	@printf "  SREC    $@\n"
+	$(Q)srec_cat $(RELEASE) -Intel -exclude -within $< -Intel \
+		 $< -Intel \
+		 -Output $@ -Intel
+
+$(NAME).elf: $(OBJS) $(LDSCRIPT)
+	@printf "  LD      $@\n"
+	$(Q)$(LD) $(OBJS) $(LDLIBS) $(LDFLAGS) -T$(LDSCRIPT) -o $@
+
+load: $(NAME).loadable.hex
+	@printf "  LOAD    $<\n"
+	$(Q)$(PYTHON) -m ledgerblue.loadMCU --targetId $(TARGET_ID) $(LOAD_ARGS) --fileName $<
+
+delete: $(RELEASE)
+	$(Q)$(PYTHON) -m ledgerblue.loadMCU --targetId $(TARGET_ID) $(LOAD_ARGS) --fileName $(RELEASE)
+
+clean:
+	$(Q)git clean -fdX
+
+vendor:
+	$(Q)git submodule update --init
+
+%.bin: %.elf
+	@printf "  OBJCOPY $@\n"
+	$(Q)$(OBJCOPY) -Obinary $< $@
+
+%.hex: %.elf
+	@printf "  OBJCOPY $@\n"
+	$(Q)$(OBJCOPY) -Oihex   $< $@
+
+%.o: %.c
+	@printf "  CC      $<\n"
+	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) $(ARCH_FLAGS) -MMD -MP -c $< -o $@
+
+%.d: %.c
+	@printf "  DEP     $<\n"
+	$(Q)$(CC) $(CFLAGS) $(CPPFLAGS) $(ARCH_FLAGS) -MM -MP -MG $< -o $@
+
+%.ld: %.ld.S
+	@printf "  CPP     $<\n"
+	$(Q)$(CC) $(CPPFLAGS) $(ARCH_FLAGS) -MMD -MP -MT $@ -E -P -xc $< -o $@
+
+%.d: %.ld.S
+	@printf "  DEP     $<\n"
+	$(Q)$(CC) $(CPPFLAGS) $(ARCH_FLAGS) -MM -MP -MG -MT $*.ld $< -o $@
+
+-include $(OBJS:.o=.d)
+-include $(LDSCRIPT:.ld=.d)

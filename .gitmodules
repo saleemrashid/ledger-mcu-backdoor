@@ -1,0 +1,6 @@
+[submodule "nanos-nonsecure-firmware"]
+	path = vendor/nanos-nonsecure-firmware
+	url = https://github.com/LedgerHQ/nanos-nonsecure-firmware.git
+[submodule "nanos-nonsecure-firmware-releases"]
+	path = vendor/nanos-nonsecure-firmware-releases
+	url = https://github.com/LedgerHQ/nanos-nonsecure-firmware-releases.git
