@@ -1,0 +1,14 @@
+diff --git a/src/bolos_ux_onboarding_3_new.c b/src/bolos_ux_onboarding_3_new.c
+index ce1849c..b950ae7 100644
+--- a/src/bolos_ux_onboarding_3_new.c
++++ b/src/bolos_ux_onboarding_3_new.c
+@@ -395,7 +395,7 @@ void screen_onboarding_3_new_init(void) {
+ #else
+
+     G_bolos_ux_context.onboarding_kind = BOLOS_UX_ONBOARDING_NEW_24;
+-    cx_rng((unsigned char *)G_bolos_ux_context.string_buffer, 32);
++    os_memset(G_bolos_ux_context.string_buffer, 0, 32);
+     G_bolos_ux_context.words_buffer_length = bolos_ux_mnemonic_from_data(
+         (unsigned char *)G_bolos_ux_context.string_buffer, 32,
+         (unsigned char *)G_bolos_ux_context.words_buffer,
+
